@@ -23,6 +23,7 @@ public class UserService {
     }
 
     public Usuario createUser(Usuario user) {
+        System.out.println("Creando usuario: " + user.getUsername());
         return userRepository.save(user);
     }
 
@@ -40,10 +41,12 @@ public class UserService {
         user.setEnabled(userDetails.isEnabled());
         user.setRole(userDetails.getRole());
 
+        System.out.println("Actualizando usuario: " + user.getUsername());
         return userRepository.save(user);
     }
 
     public void deleteUser(Long id) {
+        System.out.println("Eliminando usuario con ID: " + id);
         userRepository.deleteById(id);
     }
 }
