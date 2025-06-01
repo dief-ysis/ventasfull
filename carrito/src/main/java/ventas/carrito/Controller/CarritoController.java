@@ -48,7 +48,7 @@ public class CarritoController {
         return ResponseEntity.ok(updatedCarrito);
     }
 
-    @PutMapping("/{carritoId}/items/{itemId}")
+    @PutMapping("/{carritoId}/items/{itemId}") // http://localhost:8081/api/carritos/{carritoId}/items/{itemId}?cantidad=x
     public ResponseEntity<Carrito> updateItemQuantity(@PathVariable("carritoId") Long carritoId,
                                                       @PathVariable("itemId") Long itemId,
                                                       @RequestParam Integer cantidad) {
