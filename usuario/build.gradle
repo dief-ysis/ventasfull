@@ -1,43 +1,53 @@
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '3.5.0'
-	id 'io.spring.dependency-management' version '1.1.7'
+    id 'java'
+    id 'org.springframework.boot' version '3.5.0' // Versión de Spring Boot
+    id 'io.spring.dependency-management' version '1.1.7' // Gestión de dependencias de Spring
 }
 
 group = 'ventas'
 version = '0.0.1-SNAPSHOT'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21) // Tu versión de Java
+    }
 }
 
 configurations {
-	compileOnly {
-		extendsFrom annotationProcessor
-	}
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
 }
 
 repositories {
-	mavenCentral()
+    mavenCentral() // Repositorio principal de Maven
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-web'
-	compileOnly 'org.projectlombok:lombok'
-	runtimeOnly 'org.postgresql:postgresql'
-	annotationProcessor 'org.projectlombok:lombok'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-	implementation 'io.github.cdimascio:java-dotenv:5.2.2'
+    // Dependencias Core de Spring Boot y JPA
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa' // Para persistencia de datos con JPA
+    implementation 'org.springframework.boot:spring-boot-starter-web' // Para construir APIs REST y aplicaciones web
+    implementation 'org.springframework.boot:spring-boot-starter-actuator' // Para monitorización y gestión de la aplicación
+
+    // Base de Datos
+    runtimeOnly 'org.postgresql:postgresql' // Driver para PostgreSQL
+
+    // Utilidades
+    compileOnly 'org.projectlombok:lombok' // Para reducir código boilerplate (getters, setters, etc.)
+    annotationProcessor 'org.projectlombok:lombok' // Procesador de anotaciones para Lombok
+    implementation 'io.github.cdimascio:java-dotenv:5.2.2' // Para cargar variables de entorno desde un archivo .env
+    implementation 'net.datafaker:datafaker:2.4.2' // Para generar datos falsos (usado en DataLoader)
+
+    // Dependencias para Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test' // Starter principal para testing (incluye JUnit, Mockito, AssertJ)
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher' // Lanzador de plataforma JUnit para ejecutar tests
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.10.0' // Extensión de Mockito para JUnit 5
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+    useJUnitPlatform()
 }
 
 tasks.named('compileJava') {
-    options.compilerArgs.add('-parameters')
+    options.compilerArgs.add('-parameters') // Incluye nombres de parámetros en el bytecode
 }
