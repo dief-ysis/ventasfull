@@ -1,7 +1,7 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.5.0' // Versión de Spring Boot
-    id 'io.spring.dependency-management' version '1.1.7' // Gestión de dependencias de Spring
+    id 'org.springframework.boot' version '3.3.0' 
+    id 'io.spring.dependency-management' version '1.1.6' 
 }
 
 group = 'ventas'
@@ -9,7 +9,7 @@ version = '0.0.1-SNAPSHOT'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21) // Tu versión de Java
+        languageVersion = JavaLanguageVersion.of(21) 
     }
 }
 
@@ -20,28 +20,37 @@ configurations {
 }
 
 repositories {
-    mavenCentral() // Repositorio principal de Maven
+    mavenCentral() 
 }
 
 dependencies {
-    // Dependencias Core de Spring Boot y JPA
-    implementation 'org.springframework.boot:spring-boot-starter-data-jpa' // Para persistencia de datos con JPA
-    implementation 'org.springframework.boot:spring-boot-starter-web' // Para construir APIs REST y aplicaciones web
-    implementation 'org.springframework.boot:spring-boot-starter-actuator' // Para monitorización y gestión de la aplicación
+    // Spring Boot Starter Data JPA 
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    // Spring Boot Starter Web 
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    // Lombok 
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
 
-    // Base de Datos
-    runtimeOnly 'org.postgresql:postgresql' // Driver para PostgreSQL
+    // Spring HATEOAS (¡NUEVO! para la implementación de HATEOAS)
+    implementation 'org.springframework.boot:spring-boot-starter-hateoas'
 
-    // Utilidades
-    compileOnly 'org.projectlombok:lombok' // Para reducir código boilerplate (getters, setters, etc.)
-    annotationProcessor 'org.projectlombok:lombok' // Procesador de anotaciones para Lombok
-    implementation 'io.github.cdimascio:java-dotenv:5.2.2' // Para cargar variables de entorno desde un archivo .env
-    implementation 'net.datafaker:datafaker:2.4.2' // Para generar datos falsos (usado en DataLoader)
+    // Springdoc OpenAPI (¡NUEVO! para la documentación Swagger UI)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
 
-    // Dependencias para Testing
-    testImplementation 'org.springframework.boot:spring-boot-starter-test' // Starter principal para testing (incluye JUnit, Mockito, AssertJ)
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher' // Lanzador de plataforma JUnit para ejecutar tests
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.10.0' // Extensión de Mockito para JUnit 5
+    // Driver de PostgreSQL (para la conexión a NeonDB)
+    runtimeOnly 'org.postgresql:postgresql'
+    // Base de datos H2 (¡NUEVO! para tests en memoria)
+    runtimeOnly 'com.h2database:h2'
+
+    // Spring Boot Starter Test (para pruebas, incluye JUnit, Mockito y AssertJ)
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // DataFaker (¡NUEVO! para generar datos de prueba en los tests)
+    testImplementation 'net.datafaker:datafaker:2.2.2' // Revisa la última versión
+    // Mockito (generalmente ya incluido con spring-boot-starter-test, pero si necesitas una versión específica)
+    testImplementation 'org.mockito:mockito-core'
+    implementation 'net.datafaker:datafaker:2.0.2'
+    implementation 'io.github.cdimascio:dotenv-java:3.0.0'
 }
 
 tasks.named('test') {
