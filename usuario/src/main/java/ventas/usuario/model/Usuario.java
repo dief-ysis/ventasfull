@@ -3,17 +3,17 @@ package ventas.usuario.model;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.EqualsAndHashCode; // Añadir para HATEOAS
+import lombok.EqualsAndHashCode; 
 import lombok.NoArgsConstructor;
-import org.springframework.hateoas.RepresentationModel; // Añadir para HATEOAS
+import org.springframework.hateoas.RepresentationModel; 
 
 @Entity
 @Table(name = "usuarios")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = false) // Necesario para HATEOAS con Lombok
-public class Usuario extends RepresentationModel<Usuario> { // Extiende RepresentationModel
+@EqualsAndHashCode(callSuper = false) 
+public class Usuario extends RepresentationModel<Usuario> { 
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

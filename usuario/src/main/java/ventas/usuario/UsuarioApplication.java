@@ -7,11 +7,10 @@ import io.github.cdimascio.dotenv.Dotenv;
 @SpringBootApplication
 public class UsuarioApplication {
 
-	public static void main(String[] args) {
-		Dotenv dotenv = Dotenv.load();
+    public static void main(String[] args) {
+        Dotenv dotenv = Dotenv.load();
         dotenv.entries().forEach(entry -> System.setProperty(entry.getKey(), entry.getValue()));
 
-		SpringApplication.run(UsuarioApplication.class, args);
-	}
-
+        SpringApplication.run(UsuarioApplication.class, args);
+    }
 }

@@ -4,7 +4,8 @@ import ventas.usuario.model.Usuario;
 import ventas.usuario.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional; // Import para @Transactional
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder; 
 
 import java.util.List;
 import java.util.Optional;
@@ -14,6 +15,9 @@ public class UserService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private BCryptPasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
     public List<Usuario> getAllUsers() {
@@ -27,7 +31,7 @@ public class UserService {
 
     @Transactional
     public Usuario createUser(Usuario user) {
-        // Se puede añadir lógica de validación o encriptación de contraseña aquí
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         System.out.println("Creando usuario: " + user.getUsername());
         return userRepository.save(user);
     }
@@ -37,7 +41,9 @@ public class UserService {
         return userRepository.findById(id)
                 .map(existingUser -> {
                     existingUser.setUsername(userDetails.getUsername());
-                    existingUser.setPassword(userDetails.getPassword());
+                    if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
+                        existingUser.setPassword(passwordEncoder.encode(userDetails.getPassword()));
+                    }
                     existingUser.setEmail(userDetails.getEmail());
                     existingUser.setFirstName(userDetails.getFirstName());
                     existingUser.setLastName(userDetails.getLastName());
@@ -57,10 +63,9 @@ public class UserService {
             userRepository.deleteById(id);
             return true;
         }
-        return false; // Usuario no encontrado
+        return false; 
     }
 
-    // Métodos de servicio para los filtros
     @Transactional(readOnly = true)
     public Optional<Usuario> getUserByUsername(String username) {
         return userRepository.findByUsername(username);

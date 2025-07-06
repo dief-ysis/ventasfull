@@ -24,32 +24,34 @@ repositories {
 }
 
 dependencies {
-    // Spring Boot Starter Data JPA 
+    // Spring Boot 
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    // Spring Boot Starter Web 
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
     // Lombok 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
-    // Spring HATEOAS (¡NUEVO! para la implementación de HATEOAS)
+    // Spring HATEOAS
     implementation 'org.springframework.boot:spring-boot-starter-hateoas'
 
-    // Springdoc OpenAPI (¡NUEVO! para la documentación Swagger UI)
+    // Springdoc OpenAPI
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
 
-    // Driver de PostgreSQL (para la conexión a NeonDB)
+    //PostgreSQL 
     runtimeOnly 'org.postgresql:postgresql'
-    // Base de datos H2 (¡NUEVO! para tests en memoria)
+    // Base de datos H2 
     runtimeOnly 'com.h2database:h2'
+    
 
-    // Spring Boot Starter Test (para pruebas, incluye JUnit, Mockito y AssertJ)
+    // Spring Boot Starter Test 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    // DataFaker (¡NUEVO! para generar datos de prueba en los tests)
-    testImplementation 'net.datafaker:datafaker:2.2.2' // Revisa la última versión
-    // Mockito (generalmente ya incluido con spring-boot-starter-test, pero si necesitas una versión específica)
-    testImplementation 'org.mockito:mockito-core'
+    // DataFaker 
+    testImplementation 'net.datafaker:datafaker:2.2.2' 
     implementation 'net.datafaker:datafaker:2.0.2'
+    // Mockito
+    testImplementation 'org.mockito:mockito-core'
+
     implementation 'io.github.cdimascio:dotenv-java:3.0.0'
 }
 
@@ -58,5 +60,5 @@ tasks.named('test') {
 }
 
 tasks.named('compileJava') {
-    options.compilerArgs.add('-parameters') // Incluye nombres de parámetros en el bytecode
+    options.compilerArgs.add('-parameters') 
 }

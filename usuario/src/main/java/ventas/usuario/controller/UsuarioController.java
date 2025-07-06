@@ -9,13 +9,13 @@ import org.springframework.hateoas.Link;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.dao.DataIntegrityViolationException; 
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 
-// Importaciones para OpenAPI (Swagger)
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -33,7 +33,6 @@ public class UsuarioController {
     @Autowired
     private UserService userService;
 
-    // Helper method to add HATEOAS links to a single user
     private EntityModel<Usuario> toEntityModel(Usuario usuario) {
         return EntityModel.of(usuario,
                 linkTo(methodOn(UsuarioController.class).getUserById(usuario.getId())).withSelfRel(),
@@ -41,10 +40,9 @@ public class UsuarioController {
         );
     }
 
-    // Helper method to add HATEOAS links to a collection of users
     private CollectionModel<EntityModel<Usuario>> toCollectionModel(List<Usuario> usuarios) {
         List<EntityModel<Usuario>> userModels = usuarios.stream()
-                .map(this::toEntityModel)
+                .map((Usuario u) -> this.toEntityModel(u))
                 .collect(Collectors.toList());
         return CollectionModel.of(userModels,
                 linkTo(methodOn(UsuarioController.class).getAllUsers(null, null, null, null)).withSelfRel()
@@ -82,57 +80,53 @@ public class UsuarioController {
         }
 
         if (usuarios.isEmpty()) {
-            return ResponseEntity.noContent().build(); // HTTP 204 No Content
+            return ResponseEntity.noContent().build(); 
         }
-
         return ResponseEntity.ok(toCollectionModel(usuarios));
     }
 
     @Operation(summary = "Obtener un usuario por ID", description = "Obtiene los detalles de un usuario específico por su ID.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Usuario encontrado",
-                    content = @Content(schema = @Schema(implementation = Usuario.class))),
+            @ApiResponse(responseCode = "200", description = "Usuario encontrado", content = @Content(schema = @Schema(implementation = Usuario.class))),
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
     })
     @GetMapping("/{id}")
     public ResponseEntity<EntityModel<Usuario>> getUserById(
-            @Parameter(description = "ID del usuario a buscar", required = true) @PathVariable("id") Long id
+            @Parameter(description = "ID del usuario a obtener", required = true) @PathVariable Long id
     ) {
         return userService.getUserById(id)
-                .map(this::toEntityModel)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build()); // HTTP 404 Not Found
+                .map(usuario -> ResponseEntity.ok(toEntityModel(usuario)))
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @Operation(summary = "Crear un nuevo usuario", description = "Crea un nuevo usuario en el sistema.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Usuario creado exitosamente",
-                    content = @Content(schema = @Schema(implementation = Usuario.class))),
-            @ApiResponse(responseCode = "400", description = "Solicitud inválida (ej. usuario ya existe)",
-                    content = @Content(schema = @Schema(implementation = String.class))), // Mensaje de error simple
+            @ApiResponse(responseCode = "201", description = "Usuario creado exitosamente", content = @Content(schema = @Schema(implementation = Usuario.class))),
+            @ApiResponse(responseCode = "400", description = "Solicitud inválida"),
+            @ApiResponse(responseCode = "409", description = "Conflicto: el nombre de usuario o correo electrónico ya existe"),
             @ApiResponse(responseCode = "500", description = "Error interno del servidor")
     })
     @PostMapping
     public ResponseEntity<EntityModel<Usuario>> createUser(
-            @Parameter(description = "Objeto de usuario a crear", required = true) @RequestBody Usuario user
+            @Parameter(description = "Detalles del usuario a crear", required = true) @RequestBody Usuario usuario
     ) {
         try {
-            Usuario createdUser = userService.createUser(user);
-            return ResponseEntity
-                    .created(linkTo(methodOn(UsuarioController.class).getUserById(createdUser.getId())).toUri())
-                    .body(toEntityModel(createdUser)); // HTTP 201 Created
+            Usuario createdUser = userService.createUser(usuario);
+            Link selfLink = linkTo(methodOn(UsuarioController.class).getUserById(createdUser.getId())).withSelfRel();
+            return ResponseEntity.created(selfLink.toUri()).body(toEntityModel(createdUser));
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build(); 
         } catch (Exception e) {
-            // Aquí podrías manejar excepciones más específicas (ej. DataIntegrityViolationException)
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null); // O un mensaje de error detallado
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null); 
         }
     }
 
     @Operation(summary = "Actualizar un usuario existente", description = "Actualiza los detalles de un usuario por su ID.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Usuario actualizado exitosamente",
-                    content = @Content(schema = @Schema(implementation = Usuario.class))),
+            @ApiResponse(responseCode = "200", description = "Usuario actualizado exitosamente", content = @Content(schema = @Schema(implementation = Usuario.class))),
             @ApiResponse(responseCode = "404", description = "Usuario no encontrado"),
             @ApiResponse(responseCode = "400", description = "Solicitud inválida"),
+            @ApiResponse(responseCode = "409", description = "Conflicto: el nombre de usuario o correo electrónico ya existe"),
             @ApiResponse(responseCode = "500", description = "Error interno del servidor")
     })
     @PutMapping("/{id}")
@@ -142,12 +136,12 @@ public class UsuarioController {
     ) {
         try {
             return userService.updateUser(id, userDetails)
-                    .map(this::toEntityModel)
-                    .map(ResponseEntity::ok)
-                    .orElse(ResponseEntity.notFound().build()); // HTTP 404 Not Found
+                    .map(usuario -> ResponseEntity.ok(toEntityModel(usuario)))
+                    .orElse(ResponseEntity.notFound().build()); 
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build(); 
         } catch (Exception e) {
-            // Manejo de otras posibles excepciones (ej. validación, conflicto)
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null); 
         }
     }
 
@@ -162,9 +156,9 @@ public class UsuarioController {
             @Parameter(description = "ID del usuario a eliminar", required = true) @PathVariable("id") Long id
     ) {
         if (userService.deleteUser(id)) {
-            return ResponseEntity.noContent().build(); // HTTP 204 No Content
+            return ResponseEntity.noContent().build(); 
         } else {
-            return ResponseEntity.notFound().build(); // HTTP 404 Not Found
+            return ResponseEntity.notFound().build(); 
         }
     }
 }
