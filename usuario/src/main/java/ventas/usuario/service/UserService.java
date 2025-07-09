@@ -32,7 +32,13 @@ public class UserService {
     @Transactional
     public Usuario createUser(Usuario user) {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        System.out.println("Creando usuario: " + user.getUsername());
+        
+        if(user.getUsername() == null || user.getPassword() == null || 
+        user.getEmail() == null || user.getFirstName() == null || 
+        user.getLastName() == null) {
+            throw new IllegalArgumentException("Todos los campos obligatorios deben estar presentes");
+        }
+        
         return userRepository.save(user);
     }
 

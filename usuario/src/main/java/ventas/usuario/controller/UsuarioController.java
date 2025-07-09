@@ -9,8 +9,9 @@ import org.springframework.hateoas.Link;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.dao.DataIntegrityViolationException; 
+import org.springframework.dao.DataIntegrityViolationException;
 
+import java.net.URI;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,6 +25,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/usuarios")
@@ -59,30 +61,41 @@ public class UsuarioController {
             @ApiResponse(responseCode = "500", description = "Error interno del servidor")
     })
     @GetMapping
-    public ResponseEntity<CollectionModel<EntityModel<Usuario>>> getAllUsers(
-            @Parameter(description = "Filtrar por nombre de usuario exacto") @RequestParam(required = false) String username,
-            @Parameter(description = "Filtrar por parte del email (ignorando mayúsculas/minúsculas)") @RequestParam(required = false) String email,
-            @Parameter(description = "Filtrar por rol") @RequestParam(required = false) String role,
-            @Parameter(description = "Filtrar por parte del nombre y apellido") @RequestParam(required = false) String fullName
-    ) {
+    public ResponseEntity<?> getAllUsers(
+            @Parameter(description = "Filtrar por nombre de usuario exacto") 
+            @RequestParam(value = "username", required = false) String username,
+            
+            @Parameter(description = "Filtrar por parte del email") 
+            @RequestParam(value = "email", required = false) String email,
+            
+            @Parameter(description = "Filtrar por rol") 
+            @RequestParam(value = "role", required = false) String role,
+            
+            @Parameter(description = "Filtrar por nombre completo") 
+            @RequestParam(value = "fullName", required = false) String fullName) {
+        
         List<Usuario> usuarios;
-        if (username != null) {
-            usuarios = userService.getUserByUsername(username).map(List::of).orElse(List.of());
-        } else if (email != null) {
-            usuarios = userService.getUsersByEmail(email);
-        } else if (role != null) {
-            usuarios = userService.getUsersByRole(role);
-        } else if (fullName != null && fullName.contains(" ")) {
-            String[] parts = fullName.split(" ", 2);
-            usuarios = userService.getUsersByFullName(parts[0], parts[1]);
-        } else {
-            usuarios = userService.getAllUsers();
-        }
+        try {
+            if (username != null) {
+                usuarios = userService.getUserByUsername(username).map(List::of).orElse(List.of());
+            } else if (email != null) {
+                usuarios = userService.getUsersByEmail(email);
+            } else if (role != null) {
+                usuarios = userService.getUsersByRole(role);
+            } else if (fullName != null && fullName.contains(" ")) {
+                String[] parts = fullName.split(" ", 2);
+                usuarios = userService.getUsersByFullName(parts[0], parts[1]);
+            } else {
+                usuarios = userService.getAllUsers();
+            }
 
-        if (usuarios.isEmpty()) {
-            return ResponseEntity.noContent().build(); 
+            if (usuarios.isEmpty()) {
+                return ResponseEntity.noContent().build(); // Retorna 204 cuando no hay contenido
+            }
+            return ResponseEntity.ok(toCollectionModel(usuarios));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-        return ResponseEntity.ok(toCollectionModel(usuarios));
     }
 
     @Operation(summary = "Obtener un usuario por ID", description = "Obtiene los detalles de un usuario específico por su ID.")
@@ -107,17 +120,22 @@ public class UsuarioController {
             @ApiResponse(responseCode = "500", description = "Error interno del servidor")
     })
     @PostMapping
-    public ResponseEntity<EntityModel<Usuario>> createUser(
-            @Parameter(description = "Detalles del usuario a crear", required = true) @RequestBody Usuario usuario
-    ) {
+    public ResponseEntity<EntityModel<Usuario>> createUser(@Valid @RequestBody Usuario usuario) {
         try {
             Usuario createdUser = userService.createUser(usuario);
-            Link selfLink = linkTo(methodOn(UsuarioController.class).getUserById(createdUser.getId())).withSelfRel();
-            return ResponseEntity.created(selfLink.toUri()).body(toEntityModel(createdUser));
+            
+            EntityModel<Usuario> model = EntityModel.of(createdUser,
+                linkTo(methodOn(UsuarioController.class).getUserById(createdUser.getId())).withSelfRel(),
+                linkTo(methodOn(UsuarioController.class).getAllUsers(null, null, null, null)).withRel("usuarios")
+            );
+            
+            return ResponseEntity
+                .created(linkTo(methodOn(UsuarioController.class).getUserById(createdUser.getId())).toUri())
+                .body(model);
         } catch (DataIntegrityViolationException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build(); 
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null); 
+            return ResponseEntity.badRequest().build();
         }
     }
 
