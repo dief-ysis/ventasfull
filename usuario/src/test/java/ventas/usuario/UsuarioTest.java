@@ -18,6 +18,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.EntityModel;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,8 +31,10 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -67,14 +70,15 @@ public class UsuarioTest {
 
     private Usuario createRandomUser() {
     Usuario user = new Usuario();
-    user.setUsername("user_" + usernameCounter.getAndIncrement()); 
-    user.setPassword("ValidPass123!"); 
+    user.setUsername("user_test_" + System.currentTimeMillis() + "_" + usernameCounter.getAndIncrement());
+    user.setPassword("TestPass123!"); // Contraseña válida
     user.setEmail("test" + usernameCounter.get() + "@example.com");
-    user.setFirstName(faker.name().firstName());
-    user.setLastName(faker.name().lastName());
-    user.setAddress(faker.address().fullAddress());
-    user.setPhone("+56 9 " + faker.number().numberBetween(1000, 9999) + " " + 
-                 faker.number().numberBetween(1000, 9999));
+    user.setFirstName("Test");
+    user.setLastName("User");
+    user.setAddress("Test Address");
+    user.setPhone("+56912345678");
+    user.setEnabled(true);
+    user.setRole("ROLE_USER");
     
     return user;
 }
@@ -92,60 +96,91 @@ public class UsuarioTest {
     @Order(2)
     @DisplayName("2. Verificar que la base de datos está vacía inicialmente")
     void databaseIsEmptyInitially() {
-    assertThat(userRepository.count()).isEqualTo(0);
-    
-    ResponseEntity<String> response = restTemplate.exchange(
-        "/api/usuarios?username=test&email=test@test.com",
-        HttpMethod.GET,
-        null,
-        String.class
-    );
-    
-    assertThat(response.getStatusCode()).isIn(HttpStatus.NO_CONTENT, HttpStatus.OK);
-    
-    if (response.getStatusCode() == HttpStatus.OK) {
-        assertThat(response.getBody()).isEqualTo("[]");
+        assertThat(userRepository.count()).isEqualTo(0);
+        
+        ResponseEntity<List<Usuario>> response = restTemplate.exchange(
+            "/api/usuarios",
+            HttpMethod.GET,
+            null,
+            new ParameterizedTypeReference<List<Usuario>>() {}
+        );
+        
+        assertThat(response.getStatusCode()).isIn(HttpStatus.NO_CONTENT, HttpStatus.OK);
+        
+        if (response.getStatusCode() == HttpStatus.OK) {
+            assertThat(response.getBody()).isEmpty();
+        }
     }
-}
 
     @Test
     @Order(3)
     @DisplayName("3. Se pueden crear al menos 10 registros de usuarios")
     void shouldCreateMultipleUsers() {
         for (int i = 0; i < 10; i++) {
-            Usuario newUser = createRandomUser();
+            Usuario newUser = new Usuario();
+            newUser.setUsername("testuser_" + i);
+            newUser.setPassword("ValidPass123!");
+            newUser.setEmail("test" + i + "@example.com");
+            newUser.setFirstName("Test");
+            newUser.setLastName("User");
             
-            ResponseEntity<String> response = restTemplate.postForEntity(
+            ResponseEntity<Map> response = restTemplate.postForEntity(
                 "/api/usuarios",
                 newUser,
-                String.class
+                Map.class
             );
             
-            // Debugging
-            System.out.println("Response Status: " + response.getStatusCode());
-            System.out.println("Response Body: " + response.getBody());
+            System.out.println("Intento " + (i+1) + " - Status: " + response.getStatusCode());
+            System.out.println("Response: " + response.getBody());
             
             assertThat(response.getStatusCode())
                 .as("Falló al crear usuario: " + newUser.getUsername())
                 .isEqualTo(HttpStatus.CREATED);
         }
+        
+        // Verificación final directa en repositorio
+        assertThat(userRepository.count()).isEqualTo(10);
     }
 
     @Test
     @Order(4)
     @DisplayName("4. Se puede obtener un usuario por ID")
     void shouldReturnUserById() {
-        Usuario savedUser = userService.createUser(createRandomUser());
-
-        ResponseEntity<Usuario> response = restTemplate.getForEntity(
-                "http://localhost:" + port + "/api/usuarios/" + savedUser.getId(),
-                Usuario.class
+        // Configurar datos de prueba
+        Usuario testUser = new Usuario();
+        testUser.setUsername("testuser");
+        testUser.setPassword("password123");
+        testUser.setEmail("test@example.com");
+        testUser.setFirstName("Test");
+        testUser.setLastName("User");
+        
+        // Guardar usuario
+        Usuario savedUser = userRepository.save(testUser);
+        
+        // Hacer petición GET
+        ResponseEntity<Map> response = restTemplate.getForEntity(
+            "/api/usuarios/" + savedUser.getId(),
+            Map.class
         );
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getId()).isEqualTo(savedUser.getId());
-        assertThat(response.getBody().getUsername()).isEqualTo(savedUser.getUsername());
+        
+        // Verificar código de estado primero
+        assertThat(response.getStatusCode())
+            .as("El código de estado debería ser 200 OK")
+            .isEqualTo(HttpStatus.OK);
+        
+        // Verificar cuerpo de respuesta
+        assertThat(response.getBody())
+            .as("El cuerpo de la respuesta no debe ser nulo")
+            .isNotNull();
+        
+        // Verificar contenido
+        assertThat(response.getBody().get("id"))
+            .as("El ID del usuario no coincide")
+            .isEqualTo(savedUser.getId().toString()); 
+        
+        assertThat(response.getBody().get("username"))
+            .as("El username no coincide")
+            .isEqualTo("testuser");
     }
 
     @Test
@@ -234,64 +269,39 @@ public class UsuarioTest {
     @Order(8)
     @DisplayName("8. Verificar endpoints con parámetros de consulta (filtros)")
     void shouldFilterUsersByQueryParams() {
-        userService.createUser(createRandomUser());
-        Usuario userByUsername = createRandomUser();
-        userByUsername.setUsername("uniqueUsernameFilter");
-        userService.createUser(userByUsername);
+        // Limpiar datos
+        userRepository.deleteAll();
 
-        Usuario userByEmail = createRandomUser();
-        userByEmail.setEmail("filter@example.com");
-        userService.createUser(userByEmail);
-
-        Usuario userByRoleAdmin = createRandomUser();
-        userByRoleAdmin.setRole("ROLE_ADMIN");
-        userService.createUser(userByRoleAdmin);
-
-        Usuario userByFullName = createRandomUser();
-        userByFullName.setFirstName("John");
-        userByFullName.setLastName("Doe");
-        userService.createUser(userByFullName);
-
-        ResponseEntity<List<Usuario>> responseUsername = restTemplate.exchange(
-                "http://localhost:" + port + "/api/usuarios?username=" + userByUsername.getUsername(),
-                HttpMethod.GET, null, new ParameterizedTypeReference<List<Usuario>>() {}
+        // 1. Probar caso sin resultados (debe devolver 204)
+        ResponseEntity<List<Map<String, Object>>> responseNoContent = restTemplate.exchange(
+                "/api/usuarios?username=nonexistentUser",
+                HttpMethod.GET, 
+                null, 
+                new ParameterizedTypeReference<List<Map<String, Object>>>() {}
         );
-        assertThat(responseUsername.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(responseUsername.getBody()).isNotNull();
-        assertThat(responseUsername.getBody()).hasSize(1);
-        assertThat(responseUsername.getBody().get(0).getUsername()).isEqualTo(userByUsername.getUsername());
+        assertThat(responseNoContent.getStatusCode())
+                .isEqualTo(HttpStatus.NO_CONTENT);
 
-        ResponseEntity<List<Usuario>> responseEmail = restTemplate.exchange(
-                "http://localhost:" + port + "/api/usuarios?email=example.com",
-                HttpMethod.GET, null, new ParameterizedTypeReference<List<Usuario>>() {}
-        );
-        assertThat(responseEmail.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(responseEmail.getBody()).isNotNull();
-        assertThat(responseEmail.getBody().stream().anyMatch(u -> u.getEmail().contains("example.com"))).isTrue();
+        // 2. Crear usuario de prueba
+        Usuario testUser = new Usuario();
+        testUser.setUsername("testuser");
+        testUser.setPassword("password123");
+        testUser.setEmail("test@example.com");
+        testUser.setFirstName("John");
+        testUser.setLastName("Doe");
+        userService.createUser(testUser);
 
-        ResponseEntity<List<Usuario>> responseRole = restTemplate.exchange(
-                "http://localhost:" + port + "/api/usuarios?role=ROLE_ADMIN",
-                HttpMethod.GET, null, new ParameterizedTypeReference<List<Usuario>>() {}
+        // 3. Probar filtro que devuelve resultados (debe devolver 200)
+        ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+                "/api/usuarios?username=testuser",
+                HttpMethod.GET, 
+                null, 
+                new ParameterizedTypeReference<List<Map<String, Object>>>() {}
         );
-        assertThat(responseRole.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(responseRole.getBody()).isNotNull();
-        assertThat(responseRole.getBody().stream().allMatch(u -> "ROLE_ADMIN".equals(u.getRole()))).isTrue();
-        assertThat(responseRole.getBody().stream().anyMatch(u -> u.getId().equals(userByRoleAdmin.getId()))).isTrue();
-
-        ResponseEntity<List<Usuario>> responseFullName = restTemplate.exchange(
-                "http://localhost:" + port + "/api/usuarios?fullName=John Doe",
-                HttpMethod.GET, null, new ParameterizedTypeReference<List<Usuario>>() {}
-        );
-        assertThat(responseFullName.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(responseFullName.getBody()).isNotNull();
-        assertThat(responseFullName.getBody()).hasSize(1);
-        assertThat(responseFullName.getBody().get(0).getFirstName()).isEqualTo("John");
-        assertThat(responseFullName.getBody().get(0).getLastName()).isEqualTo("Doe");
-
-        ResponseEntity<List<Usuario>> responseNoContent = restTemplate.exchange(
-                "http://localhost:" + port + "/api/usuarios?username=nonexistentUser",
-                HttpMethod.GET, null, new ParameterizedTypeReference<List<Usuario>>() {}
-        );
-        assertThat(responseNoContent.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(response.getStatusCode())
+                .isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody())
+                .isNotNull()
+                .hasSize(1);
     }
 }

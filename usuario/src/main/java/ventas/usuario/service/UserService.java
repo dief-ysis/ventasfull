@@ -5,7 +5,7 @@ import ventas.usuario.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder; 
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;
@@ -13,11 +13,14 @@ import java.util.Optional;
 @Service
 public class UserService {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    private BCryptPasswordEncoder passwordEncoder;
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     @Transactional(readOnly = true)
     public List<Usuario> getAllUsers() {
@@ -25,20 +28,64 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public List<Usuario> getAllUsersWithFilters(String username, String email, String role, String fullName) {
+        if (username != null) {
+            return userRepository.findByUsername(username).map(List::of).orElse(List.of());
+        } else if (email != null) {
+            return userRepository.findByEmailContainingIgnoreCase(email);
+        } else if (role != null) {
+            return userRepository.findByRole(role);
+        } else if (fullName != null && fullName.contains(" ")) {
+            String[] parts = fullName.split(" ", 2);
+            return userRepository.findByFirstNameContainingIgnoreCaseAndLastNameContainingIgnoreCase(parts[0], parts[1]);
+        } else {
+            return getAllUsers();
+        }
+    }
+
+    @Transactional(readOnly = true)
     public Optional<Usuario> getUserById(Long id) {
         return userRepository.findById(id);
     }
 
+    @Transactional(readOnly = true)
+    public boolean existsByUsername(String username) {
+        return userRepository.findByUsername(username).isPresent();
+    }
+
+    @Transactional(readOnly = true)
+    public boolean existsByEmail(String email) {
+        return userRepository.findByEmail(email).isPresent();
+    }
+
     @Transactional
     public Usuario createUser(Usuario user) {
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        
-        if(user.getUsername() == null || user.getPassword() == null || 
-        user.getEmail() == null || user.getFirstName() == null || 
-        user.getLastName() == null) {
-            throw new IllegalArgumentException("Todos los campos obligatorios deben estar presentes");
+        // Validaciones más robustas
+        if (user == null) {
+            throw new IllegalArgumentException("Usuario no puede ser nulo");
         }
         
+        if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
+            throw new IllegalArgumentException("Username es requerido");
+        }
+        
+        if (user.getPassword() == null || user.getPassword().length() < 8) {
+            throw new IllegalArgumentException("Password debe tener al menos 8 caracteres");
+        }
+        
+        if (user.getEmail() == null || !user.getEmail().matches(".+@.+\\..+")) {
+            throw new IllegalArgumentException("Email debe ser válido");
+        }
+        
+        if (user.getFirstName() == null || user.getFirstName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Nombre es requerido");
+        }
+        
+        if (user.getLastName() == null || user.getLastName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Apellido es requerido");
+        }
+        
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
         return userRepository.save(user);
     }
 
@@ -46,18 +93,47 @@ public class UserService {
     public Optional<Usuario> updateUser(Long id, Usuario userDetails) {
         return userRepository.findById(id)
                 .map(existingUser -> {
-                    existingUser.setUsername(userDetails.getUsername());
+                    if (userDetails.getUsername() != null) {
+                        if (!userDetails.getUsername().equals(existingUser.getUsername()) && 
+                            existsByUsername(userDetails.getUsername())) {
+                            throw new IllegalArgumentException("El nombre de usuario ya existe");
+                        }
+                        existingUser.setUsername(userDetails.getUsername());
+                    }
+                    
                     if (userDetails.getPassword() != null && !userDetails.getPassword().isEmpty()) {
                         existingUser.setPassword(passwordEncoder.encode(userDetails.getPassword()));
                     }
-                    existingUser.setEmail(userDetails.getEmail());
-                    existingUser.setFirstName(userDetails.getFirstName());
-                    existingUser.setLastName(userDetails.getLastName());
-                    existingUser.setAddress(userDetails.getAddress());
-                    existingUser.setPhone(userDetails.getPhone());
+                    
+                    if (userDetails.getEmail() != null) {
+                        if (!userDetails.getEmail().equals(existingUser.getEmail()) && 
+                            existsByEmail(userDetails.getEmail())) {
+                            throw new IllegalArgumentException("El email ya está registrado");
+                        }
+                        existingUser.setEmail(userDetails.getEmail());
+                    }
+                    
+                    if (userDetails.getFirstName() != null) {
+                        existingUser.setFirstName(userDetails.getFirstName());
+                    }
+                    
+                    if (userDetails.getLastName() != null) {
+                        existingUser.setLastName(userDetails.getLastName());
+                    }
+                    
+                    if (userDetails.getAddress() != null) {
+                        existingUser.setAddress(userDetails.getAddress());
+                    }
+                    
+                    if (userDetails.getPhone() != null) {
+                        existingUser.setPhone(userDetails.getPhone());
+                    }
+                    
+                    if (userDetails.getRole() != null) {
+                        existingUser.setRole(userDetails.getRole());
+                    }
+                    
                     existingUser.setEnabled(userDetails.isEnabled());
-                    existingUser.setRole(userDetails.getRole());
-                    System.out.println("Actualizando usuario: " + existingUser.getUsername());
                     return userRepository.save(existingUser);
                 });
     }
@@ -65,30 +141,9 @@ public class UserService {
     @Transactional
     public boolean deleteUser(Long id) {
         if (userRepository.existsById(id)) {
-            System.out.println("Eliminando usuario con ID: " + id);
             userRepository.deleteById(id);
             return true;
         }
-        return false; 
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<Usuario> getUserByUsername(String username) {
-        return userRepository.findByUsername(username);
-    }
-
-    @Transactional(readOnly = true)
-    public List<Usuario> getUsersByEmail(String email) {
-        return userRepository.findByEmailContainingIgnoreCase(email);
-    }
-
-    @Transactional(readOnly = true)
-    public List<Usuario> getUsersByRole(String role) {
-        return userRepository.findByRole(role);
-    }
-
-    @Transactional(readOnly = true)
-    public List<Usuario> getUsersByFullName(String firstName, String lastName) {
-        return userRepository.findByFirstNameContainingIgnoreCaseAndLastNameContainingIgnoreCase(firstName, lastName);
+        return false;
     }
 }
